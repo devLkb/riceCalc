@@ -1,4 +1,4 @@
-type TabKey = 'simple' | 'market'
+import type { TabKey } from '../types/calculator'
 
 export function TabSelector({
   activeTab,
@@ -16,7 +16,7 @@ export function TabSelector({
         className={`tab ${activeTab === 'simple' ? 'is-active' : ''}`}
         onClick={() => onSelectTab('simple')}
       >
-        단순 쌀값 계산
+        쌀산기
       </button>
       <button
         type="button"
@@ -25,7 +25,16 @@ export function TabSelector({
         className={`tab ${activeTab === 'market' ? 'is-active' : ''}`}
         onClick={() => onSelectTab('market')}
       >
-        아이템 현금가 조회
+        거래소 계산기
+      </button>
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeTab === 'auction'}
+        className={`tab ${activeTab === 'auction' ? 'is-active' : ''}`}
+        onClick={() => onSelectTab('auction')}
+      >
+        경매장 계산기
       </button>
     </section>
   )

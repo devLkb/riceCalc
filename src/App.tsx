@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import './App.css'
 import { ApiSettings } from './components/ApiSettings'
+import { AuctionCalculator } from './components/AuctionCalculator'
 import { MarketCalculator } from './components/MarketCalculator'
 import { PriceInputSection } from './components/PriceInputSection'
 import { SimpleCalculator } from './components/SimpleCalculator'
 import { TabSelector } from './components/TabSelector'
 import { useApiSettings } from './hooks/useApiSettings'
 import { useRiceCalculator } from './hooks/useRiceCalculator'
-import type { MarketSearchItem, TabKey } from './types/calculator'
+import type { AuctionSearchItem, MarketSearchItem, TabKey } from './types/calculator'
 import { formatGold, formatWon } from './utils/format'
-import { searchMarketItems } from './utils/marketApi'
+import { searchAuctionItems, searchMarketItems } from './utils/marketApi'
 import { sanitizeDigits } from './utils/sanitize'
 
 const STORAGE_KEYS = {
@@ -23,11 +24,18 @@ function App() {
   const [ricePriceInput, setRicePriceInput] = useState<string>(
     localStorage.getItem(STORAGE_KEYS.ricePrice) ?? '',
   )
-  const [searchQuery, setSearchQuery] = useState<string>('')
-  const [searchResults, setSearchResults] = useState<MarketSearchItem[]>([])
-  const [selectedItem, setSelectedItem] = useState<MarketSearchItem | null>(null)
-  const [loading, setLoading] = useState<boolean>(false)
-  const [errorMessage, setErrorMessage] = useState<string>('')
+
+  const [marketSearchQuery, setMarketSearchQuery] = useState<string>('')
+  const [marketSearchResults, setMarketSearchResults] = useState<MarketSearchItem[]>([])
+  const [selectedMarketItem, setSelectedMarketItem] = useState<MarketSearchItem | null>(null)
+  const [marketLoading, setMarketLoading] = useState<boolean>(false)
+  const [marketErrorMessage, setMarketErrorMessage] = useState<string>('')
+
+  const [auctionSearchQuery, setAuctionSearchQuery] = useState<string>('')
+  const [auctionSearchResults, setAuctionSearchResults] = useState<AuctionSearchItem[]>([])
+  const [selectedAuctionItem, setSelectedAuctionItem] = useState<AuctionSearchItem | null>(null)
+  const [auctionLoading, setAuctionLoading] = useState<boolean>(false)
+  const [auctionErrorMessage, setAuctionErrorMessage] = useState<string>('')
 
   const ricePrice = Number(ricePriceInput)
   const canCalculate = Number.isFinite(ricePrice) && ricePrice > 0
@@ -50,12 +58,19 @@ function App() {
     storageKeys: STORAGE_KEYS,
   })
 
-  const itemCashValue = useMemo(() => {
-    if (!canCalculate || selectedItem?.currentMinPrice === null || !selectedItem) {
+  const marketCashValue = useMemo(() => {
+    if (!canCalculate || selectedMarketItem?.currentMinPrice === null || !selectedMarketItem) {
       return null
     }
-    return Math.round(selectedItem.currentMinPrice * (ricePrice / 100))
-  }, [canCalculate, selectedItem, ricePrice])
+    return Math.round(selectedMarketItem.currentMinPrice * (ricePrice / 100))
+  }, [canCalculate, selectedMarketItem, ricePrice])
+
+  const auctionCashValue = useMemo(() => {
+    if (!canCalculate || selectedAuctionItem?.buyPrice === null || !selectedAuctionItem) {
+      return null
+    }
+    return Math.round(selectedAuctionItem.buyPrice * (ricePrice / 100))
+  }, [canCalculate, selectedAuctionItem, ricePrice])
 
   const handleRicePriceChange = (value: string): void => {
     const sanitized = sanitizeDigits(value)
@@ -63,54 +78,103 @@ function App() {
     localStorage.setItem(STORAGE_KEYS.ricePrice, sanitized)
   }
 
-  const handleSearch = async (): Promise<void> => {
-    const query = searchQuery.trim()
+  const validateSearch = (query: string): string | null => {
     if (!canCalculate) {
-      setErrorMessage('쌀값을 먼저 입력하세요.')
-      return
+      return '쌀값을 먼저 입력해주세요.'
     }
     if (!apiEnabled || apiKeyActive.trim() === '') {
-      setErrorMessage('API를 활성화해야 조회할 수 있습니다.')
-      return
+      return 'API를 활성화해야 조회할 수 있습니다.'
     }
     if (query === '') {
-      setErrorMessage('검색어를 입력하세요.')
+      return '검색어를 입력해주세요.'
+    }
+    return null
+  }
+
+  const handleMarketSearch = async (): Promise<void> => {
+    const query = marketSearchQuery.trim()
+    const validationError = validateSearch(query)
+    if (validationError !== null) {
+      setMarketErrorMessage(validationError)
       return
     }
 
-    setLoading(true)
-    setErrorMessage('')
-    setSelectedItem(null)
+    setMarketLoading(true)
+    setMarketErrorMessage('')
+    setSelectedMarketItem(null)
 
     try {
       const items = await searchMarketItems({
         query,
         apiKey: apiKeyActive,
       })
-      setSearchResults(items)
+      setMarketSearchResults(items)
       if (items.length === 0) {
-        setErrorMessage('검색 결과가 없습니다.')
+        setMarketErrorMessage('검색 결과가 없습니다.')
       }
     } catch {
-      setSearchResults([])
-      setErrorMessage('조회에 실패했습니다. API 키 또는 네트워크 상태를 확인하세요.')
+      setMarketSearchResults([])
+      setMarketErrorMessage('조회에 실패했습니다. API 키 또는 네트워크 상태를 확인해주세요.')
     } finally {
-      setLoading(false)
+      setMarketLoading(false)
     }
   }
 
-  const handleCopyCashValue = async (): Promise<void> => {
-    if (itemCashValue === null) {
+  const handleAuctionSearch = async (): Promise<void> => {
+    const query = auctionSearchQuery.trim()
+    const validationError = validateSearch(query)
+    if (validationError !== null) {
+      setAuctionErrorMessage(validationError)
       return
     }
-    await navigator.clipboard.writeText(formatWon(itemCashValue))
+
+    setAuctionLoading(true)
+    setAuctionErrorMessage('')
+    setSelectedAuctionItem(null)
+
+    try {
+      const items = await searchAuctionItems({
+        query,
+        apiKey: apiKeyActive,
+      })
+      setAuctionSearchResults(items)
+      if (items.length === 0) {
+        setAuctionErrorMessage('검색 결과가 없습니다.')
+      }
+    } catch {
+      setAuctionSearchResults([])
+      setAuctionErrorMessage('조회에 실패했습니다. API 키 또는 네트워크 상태를 확인해주세요.')
+    } finally {
+      setAuctionLoading(false)
+    }
+  }
+
+  const handleCopyMarketCashValue = async (): Promise<void> => {
+    if (marketCashValue === null) {
+      return
+    }
+    await navigator.clipboard.writeText(formatWon(marketCashValue))
+  }
+
+  const handleCopyAuctionCashValue = async (): Promise<void> => {
+    if (auctionCashValue === null) {
+      return
+    }
+    await navigator.clipboard.writeText(formatWon(auctionCashValue))
   }
 
   const handleResetMarket = (): void => {
-    setSearchQuery('')
-    setSearchResults([])
-    setSelectedItem(null)
-    setErrorMessage('')
+    setMarketSearchQuery('')
+    setMarketSearchResults([])
+    setSelectedMarketItem(null)
+    setMarketErrorMessage('')
+  }
+
+  const handleResetAuction = (): void => {
+    setAuctionSearchQuery('')
+    setAuctionSearchResults([])
+    setSelectedAuctionItem(null)
+    setAuctionErrorMessage('')
   }
 
   return (
@@ -121,7 +185,7 @@ function App() {
         <header className="header">
           <div>
             <p className="eyebrow">LOST ARK TOOL</p>
-            <h1>로스트아크 쌀값 계산기</h1>
+            <h1>로스트아크 쌀산기</h1>
           </div>
           <ApiSettings
             apiKeyDraft={apiKeyDraft}
@@ -155,18 +219,37 @@ function App() {
 
           {activeTab === 'market' && (
             <MarketCalculator
-              searchQuery={searchQuery}
-              searchResults={searchResults}
-              selectedItem={selectedItem}
-              itemCashValue={itemCashValue}
-              loading={loading}
+              searchQuery={marketSearchQuery}
+              searchResults={marketSearchResults}
+              selectedItem={selectedMarketItem}
+              itemCashValue={marketCashValue}
+              loading={marketLoading}
               canSearch={canCalculate && apiEnabled}
-              errorMessage={errorMessage}
-              onSearchQueryChange={setSearchQuery}
-              onSearch={handleSearch}
-              onSelectItem={setSelectedItem}
-              onCopyCashValue={handleCopyCashValue}
+              errorMessage={marketErrorMessage}
+              onSearchQueryChange={setMarketSearchQuery}
+              onSearch={handleMarketSearch}
+              onSelectItem={setSelectedMarketItem}
+              onCopyCashValue={handleCopyMarketCashValue}
               onReset={handleResetMarket}
+              formatGold={formatGold}
+              formatWon={formatWon}
+            />
+          )}
+
+          {activeTab === 'auction' && (
+            <AuctionCalculator
+              searchQuery={auctionSearchQuery}
+              searchResults={auctionSearchResults}
+              selectedItem={selectedAuctionItem}
+              itemCashValue={auctionCashValue}
+              loading={auctionLoading}
+              canSearch={canCalculate && apiEnabled}
+              errorMessage={auctionErrorMessage}
+              onSearchQueryChange={setAuctionSearchQuery}
+              onSearch={handleAuctionSearch}
+              onSelectItem={setSelectedAuctionItem}
+              onCopyCashValue={handleCopyAuctionCashValue}
+              onReset={handleResetAuction}
               formatGold={formatGold}
               formatWon={formatWon}
             />

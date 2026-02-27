@@ -1,2 +1,8 @@
-﻿export type TabKey = 'simple' | 'gem'
-export type RoundUnit = 100 | 1000
+export type TabKey = 'simple' | 'market'
+
+export type MarketSearchItem = {
+  id: number
+  name: string
+  icon: string
+  currentMinPrice: number | null
+}

@@ -1,4 +1,4 @@
-﻿type TabKey = 'simple' | 'gem'
+type TabKey = 'simple' | 'market'
 
 export function TabSelector({
   activeTab,
@@ -21,11 +21,11 @@ export function TabSelector({
       <button
         type="button"
         role="tab"
-        aria-selected={activeTab === 'gem'}
-        className={`tab ${activeTab === 'gem' ? 'is-active' : ''}`}
-        onClick={() => onSelectTab('gem')}
+        aria-selected={activeTab === 'market'}
+        className={`tab ${activeTab === 'market' ? 'is-active' : ''}`}
+        onClick={() => onSelectTab('market')}
       >
-        보석 쌀값 계산
+        아이템 현금가 조회
       </button>
     </section>
   )

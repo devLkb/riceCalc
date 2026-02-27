@@ -177,19 +177,61 @@ h1 {
   margin: 0;
 }
 
-.rounding-box {
-  border: 1px solid #262637;
-  border-radius: 10px;
-  padding: 8px 12px 12px;
-  margin: 0;
+.market-grid {
+  align-items: start;
 }
 
-.radio {
-  display: flex;
+.search-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
   gap: 8px;
-  align-items: center;
+}
+
+.market-list {
+  border: 1px solid #262637;
+  border-radius: 12px;
+  background: #101016;
+  max-height: 280px;
+  overflow: auto;
+  padding: 8px;
+  display: grid;
+  gap: 8px;
+}
+
+.market-item {
+  border: 1px solid #2a2a3a;
+  border-radius: 10px;
+  background: #111117;
   color: #e5e5e5;
-  margin-top: 8px;
+  display: grid;
+  grid-template-columns: 32px 1fr auto;
+  gap: 10px;
+  align-items: center;
+  text-align: left;
+  padding: 8px 10px;
+}
+
+.market-item.is-selected {
+  border-color: #00f0b5;
+  box-shadow: 0 0 0 1px rgba(0, 240, 181, 0.35) inset;
+}
+
+.market-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  object-fit: cover;
+}
+
+.market-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.market-price {
+  color: #00f0b5;
+  font-size: 0.9rem;
 }
 
 .result-card {
@@ -223,5 +265,9 @@ h1 {
 
   .btn-row {
     flex-direction: column;
+  }
+
+  .search-row {
+    grid-template-columns: 1fr;
   }
 }

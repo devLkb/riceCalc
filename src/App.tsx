@@ -1,15 +1,15 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import './App.css'
 import { ApiSettings } from './components/ApiSettings'
-import { GemCalculator } from './components/GemCalculator'
+import { MarketCalculator } from './components/MarketCalculator'
 import { PriceInputSection } from './components/PriceInputSection'
 import { SimpleCalculator } from './components/SimpleCalculator'
 import { TabSelector } from './components/TabSelector'
 import { useApiSettings } from './hooks/useApiSettings'
 import { useRiceCalculator } from './hooks/useRiceCalculator'
-import type { RoundUnit, TabKey } from './types/calculator'
+import type { MarketSearchItem, TabKey } from './types/calculator'
 import { formatGold, formatWon } from './utils/format'
-import { calculateGemCashValue } from './utils/gem'
+import { searchMarketItems } from './utils/marketApi'
 import { sanitizeDigits } from './utils/sanitize'
 
 const STORAGE_KEYS = {
@@ -23,8 +23,11 @@ function App() {
   const [ricePriceInput, setRicePriceInput] = useState<string>(
     localStorage.getItem(STORAGE_KEYS.ricePrice) ?? '',
   )
-  const [itemGoldInput, setItemGoldInput] = useState<string>('')
-  const [roundUnit, setRoundUnit] = useState<RoundUnit>(1000)
+  const [searchQuery, setSearchQuery] = useState<string>('')
+  const [searchResults, setSearchResults] = useState<MarketSearchItem[]>([])
+  const [selectedItem, setSelectedItem] = useState<MarketSearchItem | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [errorMessage, setErrorMessage] = useState<string>('')
 
   const ricePrice = Number(ricePriceInput)
   const canCalculate = Number.isFinite(ricePrice) && ricePrice > 0
@@ -47,13 +50,12 @@ function App() {
     storageKeys: STORAGE_KEYS,
   })
 
-  const gemCashValue = useMemo(() => {
-    if (!canCalculate) {
+  const itemCashValue = useMemo(() => {
+    if (!canCalculate || selectedItem?.currentMinPrice === null || !selectedItem) {
       return null
     }
-
-    return calculateGemCashValue(itemGoldInput, ricePrice, roundUnit)
-  }, [canCalculate, itemGoldInput, ricePrice, roundUnit])
+    return Math.round(selectedItem.currentMinPrice * (ricePrice / 100))
+  }, [canCalculate, selectedItem, ricePrice])
 
   const handleRicePriceChange = (value: string): void => {
     const sanitized = sanitizeDigits(value)
@@ -61,16 +63,54 @@ function App() {
     localStorage.setItem(STORAGE_KEYS.ricePrice, sanitized)
   }
 
-  const handleCopyGemValue = async (): Promise<void> => {
-    if (gemCashValue === null) {
+  const handleSearch = async (): Promise<void> => {
+    const query = searchQuery.trim()
+    if (!canCalculate) {
+      setErrorMessage('쌀값을 먼저 입력하세요.')
       return
     }
-    await navigator.clipboard.writeText(formatWon(gemCashValue))
+    if (!apiEnabled || apiKeyActive.trim() === '') {
+      setErrorMessage('API를 활성화해야 조회할 수 있습니다.')
+      return
+    }
+    if (query === '') {
+      setErrorMessage('검색어를 입력하세요.')
+      return
+    }
+
+    setLoading(true)
+    setErrorMessage('')
+    setSelectedItem(null)
+
+    try {
+      const items = await searchMarketItems({
+        query,
+        apiKey: apiKeyActive,
+      })
+      setSearchResults(items)
+      if (items.length === 0) {
+        setErrorMessage('검색 결과가 없습니다.')
+      }
+    } catch {
+      setSearchResults([])
+      setErrorMessage('조회에 실패했습니다. API 키 또는 네트워크 상태를 확인하세요.')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleGemReset = (): void => {
-    setItemGoldInput('')
-    setRoundUnit(1000)
+  const handleCopyCashValue = async (): Promise<void> => {
+    if (itemCashValue === null) {
+      return
+    }
+    await navigator.clipboard.writeText(formatWon(itemCashValue))
+  }
+
+  const handleResetMarket = (): void => {
+    setSearchQuery('')
+    setSearchResults([])
+    setSelectedItem(null)
+    setErrorMessage('')
   }
 
   return (
@@ -113,15 +153,21 @@ function App() {
             />
           )}
 
-          {activeTab === 'gem' && (
-            <GemCalculator
-              itemGoldInput={itemGoldInput}
-              roundUnit={roundUnit}
-              gemCashValue={gemCashValue}
-              onItemGoldChange={(value) => setItemGoldInput(sanitizeDigits(value))}
-              onRoundUnitChange={setRoundUnit}
-              onCopyGemValue={handleCopyGemValue}
-              onReset={handleGemReset}
+          {activeTab === 'market' && (
+            <MarketCalculator
+              searchQuery={searchQuery}
+              searchResults={searchResults}
+              selectedItem={selectedItem}
+              itemCashValue={itemCashValue}
+              loading={loading}
+              canSearch={canCalculate && apiEnabled}
+              errorMessage={errorMessage}
+              onSearchQueryChange={setSearchQuery}
+              onSearch={handleSearch}
+              onSelectItem={setSelectedItem}
+              onCopyCashValue={handleCopyCashValue}
+              onReset={handleResetMarket}
+              formatGold={formatGold}
               formatWon={formatWon}
             />
           )}
